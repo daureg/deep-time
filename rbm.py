@@ -4,28 +4,23 @@ Boltzmann Machines (BMs) are a particular form of energy-based model which
 contain hidden variables. Restricted Boltzmann Machines further restrict BMs
 to those without visible-visible and hidden-hidden connections.
 """
-import cPickle
-import gzip
 import time
-import PIL.Image
 
 import numpy
 
 import theano
 import theano.tensor as T
-import os
 
 from theano.tensor.shared_randomstreams import RandomStreams
 
-from utils import tile_raster_images
 from logistic_sgd import load_data
 
 
 class RBM(object):
     """Restricted Boltzmann Machine (RBM)  """
-    def __init__(self, input=None, n_visible=784, n_hidden=500, \
-        W=None, hbias=None, vbias=None, numpy_rng=None,
-        theano_rng=None):
+    def __init__(self, input=None, n_visible=784, n_hidden=500,
+                 W=None, hbias=None, vbias=None, numpy_rng=None,
+                 theano_rng=None):
         """
         RBM constructor. Defines the parameters of the model along with
         basic operations for inferring hidden from visible (and vice-versa),
@@ -67,10 +62,10 @@ class RBM(object):
             # converted using asarray to dtype theano.config.floatX so
             # that the code is runable on GPU
             initial_W = numpy.asarray(numpy_rng.uniform(
-                      low=-4 * numpy.sqrt(6. / (n_hidden + n_visible)),
-                      high=4 * numpy.sqrt(6. / (n_hidden + n_visible)),
-                      size=(n_visible, n_hidden)),
-                      dtype=theano.config.floatX)
+                low=-4 * numpy.sqrt(6. / (n_hidden + n_visible)),
+                high=4 * numpy.sqrt(6. / (n_hidden + n_visible)),
+                size=(n_visible, n_hidden)),
+                dtype=theano.config.floatX)
             # theano shared variables for weights and biases
             W = theano.shared(value=initial_W, name='W', borrow=True)
 
@@ -215,11 +210,12 @@ class RBM(object):
         [pre_sigmoid_nvs, nv_means, nv_samples,
          pre_sigmoid_nhs, nh_means, nh_samples], updates = \
             theano.scan(self.gibbs_hvh,
-                    # the None are place holders, saying that
-                    # chain_start is the initial state corresponding to the
-                    # 6th output
-                    outputs_info=[None,  None,  None, None, None, chain_start],
-                    n_steps=k)
+                        # the None are place holders, saying that
+                        # chain_start is the initial state corresponding to
+                        # the 6th output
+                        outputs_info=[None,  None,  None, None, None,
+                                      chain_start],
+                        n_steps=k)
 
         # determine gradients on RBM parameters
         # not that we only need the sample at the end of the chain
@@ -234,7 +230,7 @@ class RBM(object):
         for gparam, param in zip(gparams, self.params):
             # make sure that the learning rate is of the right dtype
             updates[param] = param - gparam * T.cast(lr,
-                                                    dtype=theano.config.floatX)
+                                                     dtype=theano.config.floatX)
         if persistent:
             # Note that this works only if persistent is a shared variable
             updates[persistent] = nh_samples[-1]
@@ -307,17 +303,16 @@ class RBM(object):
         """
 
         cross_entropy = T.mean(
-                T.sum(self.input * T.log(T.nnet.sigmoid(pre_sigmoid_nv)) +
-                (1 - self.input) * T.log(1 - T.nnet.sigmoid(pre_sigmoid_nv)),
-                      axis=1))
+            T.sum(self.input * T.log(T.nnet.sigmoid(pre_sigmoid_nv)) +
+                  (1 - self.input) * T.log(1 - T.nnet.sigmoid(pre_sigmoid_nv)),
+                  axis=1))
 
         return cross_entropy
 
 
 def test_rbm(learning_rate=0.1, training_epochs=15,
              dataset='../data/mnist.pkl.gz', batch_size=20,
-             n_chains=20, n_samples=10, output_folder='rbm_plots',
-             n_hidden=500):
+             n_chains=20, n_samples=10, n_hidden=500):
     """
     Demonstrate how to train and afterwards sample from it using Theano.
 
@@ -336,7 +331,7 @@ def test_rbm(learning_rate=0.1, training_epochs=15,
     :param n_samples: number of samples to plot for each chain
 
     """
-    datasets = load_data(dataset)
+    datasets, n_in, n_out = load_data(dataset)
 
     train_set_x, train_set_y = datasets[0]
     test_set_x, test_set_y = datasets[2]
@@ -358,29 +353,26 @@ def test_rbm(learning_rate=0.1, training_epochs=15,
                                      borrow=True)
 
     # construct the RBM class
-    rbm = RBM(input=x, n_visible=28 * 28,
+    rbm = RBM(input=x, n_visible=n_in,
               n_hidden=n_hidden, numpy_rng=rng, theano_rng=theano_rng)
 
-    # get the cost and the gradient corresponding to one step of CD-15
+    # get the cost and the gradient corresponding to one step of PCD-k
     cost, updates = rbm.get_cost_updates(lr=learning_rate,
-                                         persistent=persistent_chain, k=15)
+                                         persistent=persistent_chain, k=3)
 
     #################################
     #     Training the RBM          #
     #################################
-    if not os.path.isdir(output_folder):
-        os.makedirs(output_folder)
-    os.chdir(output_folder)
 
     # it is ok for a theano function to have no output
     # the purpose of train_rbm is solely to update the RBM parameters
     train_rbm = theano.function([index], cost,
-           updates=updates,
-           givens={x: train_set_x[index * batch_size:
-                                  (index + 1) * batch_size]},
-           name='train_rbm')
+                                updates=updates,
+                                givens={x:
+                                        train_set_x[index * batch_size:
+                                                    (index + 1) * batch_size]},
+                                name='train_rbm')
 
-    plotting_time = 0.
     start_time = time.clock()
 
     # go through training epochs
@@ -391,77 +383,14 @@ def test_rbm(learning_rate=0.1, training_epochs=15,
         for batch_index in xrange(n_train_batches):
             mean_cost += [train_rbm(batch_index)]
 
-        print 'Training epoch %d, cost is ' % epoch, numpy.mean(mean_cost)
-
-        # Plot filters after each training epoch
-        plotting_start = time.clock()
-        # Construct image from the weight matrix
-        image = PIL.Image.fromarray(tile_raster_images(
-                 X=rbm.W.get_value(borrow=True).T,
-                 img_shape=(28, 28), tile_shape=(10, 10),
-                 tile_spacing=(1, 1)))
-        image.save('filters_at_epoch_%i.png' % epoch)
-        plotting_stop = time.clock()
-        plotting_time += (plotting_stop - plotting_start)
+        print('Training epoch %d, cost is ' % epoch, numpy.mean(mean_cost))
 
     end_time = time.clock()
 
-    pretraining_time = (end_time - start_time) - plotting_time
+    pretraining_time = end_time - start_time
 
-    print ('Training took %f minutes' % (pretraining_time / 60.))
+    print('Training took %f minutes' % (pretraining_time / 60.))
 
-    #################################
-    #     Sampling from the RBM     #
-    #################################
-    # find out the number of test samples
-    number_of_test_samples = test_set_x.get_value(borrow=True).shape[0]
-
-    # pick random test examples, with which to initialize the persistent chain
-    test_idx = rng.randint(number_of_test_samples - n_chains)
-    persistent_vis_chain = theano.shared(numpy.asarray(
-            test_set_x.get_value(borrow=True)[test_idx:test_idx + n_chains],
-            dtype=theano.config.floatX))
-
-    plot_every = 1000
-    # define one step of Gibbs sampling (mf = mean-field) define a
-    # function that does `plot_every` steps before returning the
-    # sample for plotting
-    [presig_hids, hid_mfs, hid_samples, presig_vis,
-     vis_mfs, vis_samples], updates =  \
-                        theano.scan(rbm.gibbs_vhv,
-                                outputs_info=[None,  None, None, None,
-                                              None, persistent_vis_chain],
-                                n_steps=plot_every)
-
-    # add to updates the shared variable that takes care of our persistent
-    # chain :.
-    updates.update({persistent_vis_chain: vis_samples[-1]})
-    # construct the function that implements our persistent chain.
-    # we generate the "mean field" activations for plotting and the actual
-    # samples for reinitializing the state of our persistent chain
-    sample_fn = theano.function([], [vis_mfs[-1], vis_samples[-1]],
-                                updates=updates,
-                                name='sample_fn')
-
-    # create a space to store the image for plotting ( we need to leave
-    # room for the tile_spacing as well)
-    image_data = numpy.zeros((29 * n_samples + 1, 29 * n_chains - 1),
-                             dtype='uint8')
-    for idx in xrange(n_samples):
-        # generate `plot_every` intermediate samples that we discard,
-        # because successive samples in the chain are too correlated
-        vis_mf, vis_sample = sample_fn()
-        print ' ... plotting sample ', idx
-        image_data[29 * idx:29 * idx + 28, :] = tile_raster_images(
-                X=vis_mf,
-                img_shape=(28, 28),
-                tile_shape=(1, n_chains),
-                tile_spacing=(1, 1))
-        # construct image
-
-    image = PIL.Image.fromarray(image_data)
-    image.save('samples.png')
-    os.chdir('../')
 
 if __name__ == '__main__':
-    test_rbm()
+    test_rbm('flickr.pkl.gz')
