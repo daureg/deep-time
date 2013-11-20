@@ -38,7 +38,6 @@ __docformat__ = 'restructedtext en'
 import cPickle
 import gzip
 import os
-import sys
 import time
 
 import numpy
@@ -68,8 +67,7 @@ class LogisticRegression(object):
                      which the datapoints lie
 
         :type n_out: int
-        :param n_out: number of output units, the dimension of the space in
-                      which the labels lie
+        :param n_out: number of output units, the number of different class
 
         """
 
@@ -157,13 +155,10 @@ def load_data(dataset):
 
     # Download the MNIST dataset if it is not present
     data_dir, data_file = os.path.split(dataset)
-    if (not os.path.isfile(dataset)) and data_file == 'mnist.pkl.gz':
-        import urllib
-        origin = 'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
-        print 'Downloading data from %s' % origin
-        urllib.urlretrieve(origin, dataset)
+    if not os.path.isfile(dataset):
+        raise IOError('cant find ' + dataset)
 
-    print '... loading data'
+    print('... loading data')
 
     # Load the dataset
     f = gzip.open(dataset, 'rb')
@@ -201,17 +196,19 @@ def load_data(dataset):
         # lets ous get around this issue
         return shared_x, T.cast(shared_y, 'int32')
 
+    n_in = test_set[0].shape[1]
+    n_out = numpy.size(numpy.unique(test_set[1]))
     test_set_x, test_set_y = shared_dataset(test_set)
     valid_set_x, valid_set_y = shared_dataset(valid_set)
     train_set_x, train_set_y = shared_dataset(train_set)
 
     rval = [(train_set_x, train_set_y), (valid_set_x, valid_set_y),
             (test_set_x, test_set_y)]
-    return rval
+    return rval, n_in, n_out
 
 
 def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
-                           dataset='../data/mnist.pkl.gz',
+                           dataset='mnist.pkl.gz',
                            batch_size=600):
     """
     Demonstrate stochastic gradient descent optimization of a log-linear
@@ -231,7 +228,7 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
                  http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz
 
     """
-    datasets = load_data(dataset)
+    datasets, n_in, n_out = load_data(dataset)
 
     train_set_x, train_set_y = datasets[0]
     valid_set_x, valid_set_y = datasets[1]
@@ -245,7 +242,7 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
     ######################
     # BUILD ACTUAL MODEL #
     ######################
-    print '... building the model'
+    print('... building the model')
 
     # allocate symbolic variables for the data
     index = T.lscalar()  # index to a [mini]batch
@@ -254,8 +251,7 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
                            # [int] labels
 
     # construct the logistic regression class
-    # Each MNIST image has size 28*28
-    classifier = LogisticRegression(input=x, n_in=28 * 28, n_out=10)
+    classifier = LogisticRegression(x, n_in, n_out)
 
     # the cost we minimize during training is the negative log likelihood of
     # the model in symbolic format
@@ -297,7 +293,7 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
     ###############
     # TRAIN MODEL #
     ###############
-    print '... training the model'
+    print('... training the model')
     # early-stopping parameters
     patience = 5000  # look as this many examples regardless
     patience_increase = 2  # wait this much longer when a new best is
@@ -362,11 +358,11 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
     print(('Optimization complete with best validation score of %f %%,'
            'with test performance %f %%') %
                  (best_validation_loss * 100., test_score * 100.))
-    print 'The code run for %d epochs, with %f epochs/sec' % (
-        epoch, 1. * epoch / (end_time - start_time))
-    print >> sys.stderr, ('The code for file ' +
-                          os.path.split(__file__)[1] +
-                          ' ran for %.1fs' % ((end_time - start_time)))
+    print('The code run for %d epochs, with %f epochs/sec' % (
+        epoch, 1. * epoch / (end_time - start_time)))
+    print('The code for file ' +
+          os.path.split(__file__)[1] +
+          ' ran for %.1fs' % ((end_time - start_time)))
 
 if __name__ == '__main__':
-    sgd_optimization_mnist()
+    sgd_optimization_mnist(dataset='flickr.pkl.gz')
