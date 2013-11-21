@@ -393,4 +393,4 @@ def test_rbm(learning_rate=0.1, training_epochs=15,
 
 
 if __name__ == '__main__':
-    test_rbm('flickr.pkl.gz')
+    test_rbm(dataset='flickr.pkl.gz')
