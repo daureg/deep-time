@@ -259,9 +259,10 @@ class DBN(object):
         return train_fn, valid_score, test_score
 
 
-def test_DBN(finetune_lr=0.1, pretraining_epochs=80,
-             pretrain_lr=0.01, k=1, training_epochs=600,
-             dataset='../data/mnist.pkl.gz', batch_size=15):
+def test_DBN(finetune_lr=0.1, pretraining_epochs=15,
+             pretrain_lr=0.01, k=3, training_epochs=500,
+             dataset='../data/mnist.pkl.gz', batch_size=20,
+             size=[225, 500]):
     """
     Demonstrates how to train and test a Deep Belief Network.
 
@@ -295,9 +296,13 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=80,
     # numpy random generator
     numpy_rng = numpy.random.RandomState(123)
     print('... building the model')
+    print('... use the following parameters: {}, {}, {}, {}, {}, {}'.format(finetune_lr,
+    pretraining_epochs, pretrain_lr, k, training_epochs, size))
+
+
     # construct the Deep Belief Network
     dbn = DBN(numpy_rng=numpy_rng, n_ins=n_in,
-              hidden_layers_sizes=[900, 500],
+              hidden_layers_sizes=size,
               n_outs=n_out)
 
     #########################
@@ -313,14 +318,19 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=80,
     ## Pre-train layer-wise
     for i in xrange(dbn.n_layers):
         # go through pretraining epochs
+        previous_cost = -1
         for epoch in xrange(pretraining_epochs):
             # go through the training set
             c = []
             for batch_index in xrange(n_train_batches):
                 c.append(pretraining_fns[i](index=batch_index,
                                             lr=pretrain_lr))
-            print('Pre-training layer %i, epoch %d, cost ' % (i, epoch),)
-            print(numpy.mean(c))
+            print('Pre-training layer {}, epoch {}, cost: {}'.format(i, epoch, numpy.mean(c)))
+            if epoch > 1 and abs(numpy.mean(c) - previous_cost) < 1e-2:
+                break
+            else:
+                previous_cost = numpy.mean(c)
+
 
     end_time = time.clock()
     print('The pretraining code for file ' +
@@ -369,9 +379,9 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=80,
 
                 validation_losses = validate_model()
                 this_validation_loss = numpy.mean(validation_losses)
-                print('epoch %i, minibatch %i/%i, validation error %f %%' % \
-                      (epoch, minibatch_index + 1, n_train_batches,
-                       this_validation_loss * 100.))
+                print('epoch {}, minibatch {}/{}, validation error {}%'.format(epoch,
+                            minibatch_index + 1, n_train_batches,
+                            this_validation_loss * 100.))
 
                 # if we got the best validation score until now
                 if this_validation_loss < best_validation_loss:
@@ -388,23 +398,22 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=80,
                     # test it on the test set
                     test_losses = test_model()
                     test_score = numpy.mean(test_losses)
-                    print(('     epoch %i, minibatch %i/%i, test error of '
-                           'best model %f %%') %
-                          (epoch, minibatch_index + 1, n_train_batches,
-                           test_score * 100.))
+                    print('epoch {}, minibatch {}/{}, test error of best model {}%'.format(epoch,
+                                minibatch_index + 1, n_train_batches, test_score * 100.))
 
             if patience <= iter:
                 done_looping = True
                 break
 
     end_time = time.clock()
-    print(('Optimization complete with best validation score of %f %%,'
-           'with test performance %f %%') %
-                 (best_validation_loss * 100., test_score * 100.))
+    print('Optimization complete with best validation score of {}%, with test performance {}%'.format(best_validation_loss * 100.,
+                test_score * 100.))
     print('The fine tuning code for file ' +
           os.path.split(__file__)[1] +
           ' ran for %.2fm' % ((end_time - start_time) / 60.))
 
 
 if __name__ == '__main__':
-    test_DBN(dataset='flickr.pkl.gz')
+    for s in range(225, 1800, 250):
+        test_DBN(dataset='flickr.pkl.gz', k=1, pretraining_epochs=100,
+                finetune_lr=0.5, size=[225, s])

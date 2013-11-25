@@ -365,4 +365,6 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
           ' ran for %.1fs' % ((end_time - start_time)))
 
 if __name__ == '__main__':
-    sgd_optimization_mnist(dataset='flickr.pkl.gz')
+    for l in list(numpy.logspace(-1, 1, 11)):
+        sgd_optimization_mnist(learning_rate=float(l), dataset='flickr.pkl.gz')
+        print('with learning_rate={}'.format(l))

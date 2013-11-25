@@ -348,9 +348,9 @@ def test_rbm(learning_rate=0.1, training_epochs=15,
 
     # initialize storage for the persistent chain (state = hidden
     # layer of chain)
-    persistent_chain = theano.shared(numpy.zeros((batch_size, n_hidden),
-                                                 dtype=theano.config.floatX),
-                                     borrow=True)
+    # persistent_chain = theano.shared(numpy.zeros((batch_size, n_hidden),
+    #                                              dtype=theano.config.floatX),
+    #                                  borrow=True)
 
     # construct the RBM class
     rbm = RBM(input=x, n_visible=n_in,
@@ -358,7 +358,7 @@ def test_rbm(learning_rate=0.1, training_epochs=15,
 
     # get the cost and the gradient corresponding to one step of PCD-k
     cost, updates = rbm.get_cost_updates(lr=learning_rate,
-                                         persistent=persistent_chain, k=3)
+                                         persistent=None, k=3)
 
     #################################
     #     Training the RBM          #
@@ -393,4 +393,4 @@ def test_rbm(learning_rate=0.1, training_epochs=15,
 
 
 if __name__ == '__main__':
-    test_rbm(dataset='flickr.pkl.gz')
+    test_rbm(dataset='flickr.pkl.gz', training_epochs=10)
