@@ -1,4 +1,5 @@
 clear all;
+method='knn';
 nfold = 4;
 load('deep.mat')
 % features: uid, long, lat, weekday, hour, timestamp, tag1, …, tag825
@@ -13,20 +14,21 @@ report = zeros(nfold, 6);
 for j = 1:nfold
 	j
 	[tr, vl] = get_cross_set(z, nfold, j);
-	tmp = zeros(K, 6);
-	for k = 1:K
-		gold_label = label(vl) == k;
-
-		tic;
-		mlnb = NaiveBayes.fit(X(tr, :), label(tr) == k, 'dist', 'mn');
-		[proba{j}, pred{j}] = mlnb.posterior(X(vl, :));
-		ttime = toc;
-
-		[a, p, r, f] = evaluate(pred{j}, gold_label);
-		C = confusionmat(gold_label, pred{j});
-		fp = C(1,2)/sum(C(1,:));
-		tmp(k, :) = [a, p, r, f, fp, ttime];
+	gold_label = label(vl);
+	tic;
+	switch method
+		case 'nb'
+			mlnb = NaiveBayes.fit(X(tr, :), label(tr), 'dist', 'mn');
+			[proba{j}, pred{j}] = mlnb.posterior(X(vl, :));
+		case 'knn'
+			mdl = ClassificationKNN.fit(X(tr,:),label(tr),'Distance', 'hamming', 'NumNeighbors', 5);
+			% not a probabistic method, the proba is the number of k
+			% nearest neighbors that have the selected class.
+			[pred{j}, proba{j}] = predict(mdl, X(vl,:));
 	end
-	report(j, :) = mean(tmp);
+	tt = toc;
+	C = confusionmat(gold_label, pred{j});
+	report(j, [1 2]) = [sum(diag(C))/length(gold_label) tt];
 end
 report
+disp(100*(1-mean(report(:,1))))
