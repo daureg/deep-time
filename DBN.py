@@ -4,6 +4,7 @@ import os
 import time
 
 import numpy
+import scipy.io as sio
 
 import theano
 import theano.tensor as T
@@ -331,12 +332,15 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=15,
             else:
                 previous_cost = numpy.mean(c)
 
-
     end_time = time.clock()
     print('The pretraining code for file ' +
           os.path.split(__file__)[1] +
           ' ran for %.2fm' % ((end_time - start_time) / 60.))
 
+    sio.savemat('W', {'W': dbn.rbm_layers[0].W.get_value()},
+                do_compression=True)
+    s, c = dbn.rbm_layers[0].post_plot(2, 2, test_set_x, test_set_y)
+    sio.savemat('samples', {'s': s, 'c': c})
     ########################
     # FINETUNING THE MODEL #
     ########################
@@ -413,7 +417,19 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=15,
           ' ran for %.2fm' % ((end_time - start_time) / 60.))
 
 
+def n_max(arr, n):
+    indices = arr.ravel().argsort()[-n:]
+    indices = [numpy.unravel_index(i, arr.shape)[0] for i in indices]
+    return list(reversed(indices))
+
 if __name__ == '__main__':
-    for s in range(225, 1800, 250):
-        test_DBN(dataset='flickr.pkl.gz', k=1, pretraining_epochs=100,
-                finetune_lr=0.5, size=[225, s])
+    s = 158
+    n = 10
+    test_DBN(dataset='flickr.pkl.gz', k=1, pretraining_epochs=1,
+             finetune_lr=0.5, size=[s])
+    w = sio.loadmat('W')['W']
+    wv = numpy.abs(w)
+    top_tags = numpy.zeros((s, n))
+    for i in range(s):
+        top_tags[i, :] = n_max(wv[:, i], n)
+    sio.savemat('cluster', {'t': top_tags})
