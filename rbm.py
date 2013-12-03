@@ -325,7 +325,7 @@ class RBM(object):
                 test_set_x.get_value(borrow=True)[test_idx:test_idx + n_chains],
                 dtype=theano.config.floatX))
 
-        plot_every = 1
+        plot_every = 800
         # define one step of Gibbs sampling (mf = mean-field) define a
         # function that does `plot_every` steps before returning the
         # sample for plotting
@@ -347,8 +347,9 @@ class RBM(object):
                                     name='sample_fn')
 
         # create a space to store the generated tags
-        photos_data = numpy.zeros((n_chains, self.n_visible, n_samples),
+        photos_data = numpy.zeros((n_chains, self.n_visible, n_samples+1),
                                   dtype=theano.config.floatX)
+        photos_data[:, :, 0] = test_set_x.get_value(borrow=True)[test_idx:test_idx + n_chains]
         for idx in xrange(n_samples):
             # generate `plot_every` intermediate samples that we discard,
             # because successive samples in the chain are too correlated

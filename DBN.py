@@ -339,7 +339,7 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=15,
 
     sio.savemat('W', {'W': dbn.rbm_layers[0].W.get_value()},
                 do_compression=True)
-    s, c = dbn.rbm_layers[0].post_plot(2, 2, test_set_x, test_set_y)
+    s, c = dbn.rbm_layers[0].post_plot(20, 7, test_set_x, test_set_y)
     sio.savemat('samples', {'s': s, 'c': c})
     ########################
     # FINETUNING THE MODEL #
@@ -425,7 +425,7 @@ def n_max(arr, n):
 if __name__ == '__main__':
     s = 158
     n = 10
-    test_DBN(dataset='flickr.pkl.gz', k=1, pretraining_epochs=1,
+    test_DBN(dataset='flickr.pkl.gz', k=1, pretraining_epochs=150,
              finetune_lr=0.5, size=[s])
     w = sio.loadmat('W')['W']
     wv = numpy.abs(w)
